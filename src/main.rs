@@ -8,46 +8,39 @@ extern crate lazy_static;
 
 use std::collections::HashMap;
 
-use ev3dev_lang_rust::{sensors::ColorSensor, Ev3Result};
-use menu::Menu;
+use ev3dev_lang_rust::motors::{LargeMotor, MotorPort};
+use ev3dev_lang_rust::Ev3Result;
 
-mod menu;
+const YAW_INCR: i32 = 15;
+const PITCH_INCR: i32 = 5;
+
+const YAW_MIN: i32 = -90;
+const YAW_MAX: i32 = 90;
+
+const PITCH_MIN: i32 = 0;
+const PITCH_MAX: i32 = 30;
 
 fn main() -> Ev3Result<()> {
-    let mut entries = Menu::new()?;
+    let yaw_motor = LargeMotor::get(MotorPort::OutA)?;
+    let pitch_motor = LargeMotor::get(MotorPort::OutB)?;
 
-    entries.add("Hello World", handler_hello_world);
-    entries.add("Color Sensor", handler_color_sensor);
-    entries.add("Get own IP", handler_get_ip);
+    // Set the initial speed so that the motors will move
+    yaw_motor.set_speed_sp(100)?;
+    pitch_motor.set_speed_sp(100)?;
+    yaw_motor.set_stop_action("hold");
+    pitch_motor.set_stop_action("hold");
 
-    entries.run()
-}
+    let yaw = 0;
+    let pitch = 0;
+    yaw_motor.run_to_rel_pos(Some(YAW_MIN))?;
+    #[cfg(target_os = "linux")]
+    yaw_motor.wait_until_not_moving(None);
+    pitch_motor.run_to_rel_pos(Some(PITCH_MIN))?;
+    #[cfg(target_os = "linux")]
+    pitch_motor.wait_until_not_moving(None);
+    loop {
 
-fn handler_hello_world() {
-    println!("Hello World");
-}
-
-fn handler_color_sensor() {
-    if let Err(err) = println_color_sensor() {
-        println!("Could not print color sensor value: {:?}", err)
     }
-}
 
-fn handler_get_ip() {
-    let ip = get_own_ip();
-    println!("IP: {:?}", ip);
-}
-
-fn println_color_sensor() -> Ev3Result<()> {
-    let color_sensor = ColorSensor::find()?;
-    color_sensor.set_mode_rgb_raw()?;
-    println!("{:?}", color_sensor.get_rgb()?);
     Ok(())
-}
-
-fn get_own_ip() -> reqwest::Result<String> {
-    let resp =
-        reqwest::blocking::get("https://httpbin.org/ip")?.json::<HashMap<String, String>>()?;
-
-    Ok(resp.get("origin").cloned().unwrap_or_default())
 }
